@@ -1,0 +1,182 @@
+{
+  "meta": {
+    "name": "MVCS Dashboard",
+    "version": 1
+  },
+  "preset": "dashboard",
+  "groups": [
+    {
+      "id": "82ea599f-cf4c-4f5c-b03c-a19ff32f1298",
+      "title": "Grafik",
+      "columns": 2,
+      "items": [
+        {
+          "id": "94647731-3eaa-44ab-b2fb-7f8b3d68e64a",
+          "type": "chart:bar",
+          "title": "Penjualan / Kuartal",
+          "refreshSec": 0,
+          "source": {
+            "mode": "static",
+            "data": [
+              {
+                "label": "Q1",
+                "value": 120
+              },
+              {
+                "label": "Q2",
+                "value": 180
+              },
+              {
+                "label": "Q3",
+                "value": 90
+              },
+              {
+                "label": "Q4",
+                "value": 210
+              }
+            ]
+          },
+          "mapping": {
+            "labelKey": "label",
+            "valueKey": "value"
+          },
+          "options": {
+            "height": 240,
+            "padding": 24,
+            "legend": true
+          }
+        },
+        {
+          "id": "7193a09d-91d1-42e8-a7a7-1b8d15449f64",
+          "type": "chart:line",
+          "title": "Kunjungan / Hari",
+          "refreshSec": 0,
+          "source": {
+            "mode": "static",
+            "data": [
+              {
+                "label": "Sen",
+                "value": 50
+              },
+              {
+                "label": "Sel",
+                "value": 70
+              },
+              {
+                "label": "Rab",
+                "value": 65
+              },
+              {
+                "label": "Kam",
+                "value": 90
+              },
+              {
+                "label": "Jum",
+                "value": 120
+              },
+              {
+                "label": "Sab",
+                "value": 80
+              },
+              {
+                "label": "Min",
+                "value": 60
+              }
+            ]
+          },
+          "mapping": {
+            "labelKey": "label",
+            "valueKey": "value"
+          },
+          "options": {
+            "height": 240,
+            "padding": 24,
+            "legend": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "9001e26b-1aff-4dc8-a780-f37c60bc3f21",
+      "title": "Konten",
+      "columns": 3,
+      "items": [
+        {
+          "id": "89ee918a-4939-44a5-b225-ca05596a837c",
+          "type": "table",
+          "title": "Produk Teratas",
+          "refreshSec": 0,
+          "source": {
+            "mode": "static",
+            "data": [
+              {
+                "id": 1,
+                "nama": "Keyboard",
+                "harga": 350000
+              },
+              {
+                "id": 2,
+                "nama": "Mouse",
+                "harga": 150000
+              },
+              {
+                "id": 3,
+                "nama": "Headset",
+                "harga": 550000
+              }
+            ]
+          },
+          "mapping": {
+            "labelKey": "label",
+            "valueKey": "value"
+          },
+          "options": {
+            "height": 240,
+            "padding": 24,
+            "legend": true
+          }
+        },
+        {
+          "id": "ce746a87-f589-4feb-b3d8-b349992e73b2",
+          "type": "card",
+          "title": "Tentang Kami",
+          "refreshSec": 0,
+          "source": {
+            "mode": "static",
+            "data": []
+          },
+          "mapping": {
+            "labelKey": "label",
+            "valueKey": "value"
+          },
+          "options": {
+            "height": 240,
+            "padding": 24,
+            "legend": true
+          },
+          "content": "Solusi dashboard single-file dengan arsitektur MVCS."
+        },
+        {
+          "id": "00fd4d0e-62b0-44f0-8357-d06847eea439",
+          "type": "paragraph",
+          "title": "Catatan",
+          "refreshSec": 0,
+          "source": {
+            "mode": "static",
+            "data": []
+          },
+          "mapping": {
+            "labelKey": "label",
+            "valueKey": "value"
+          },
+          "options": {
+            "height": 240,
+            "padding": 24,
+            "legend": true
+          },
+          "content": "Semua data dan pengaturan disimpan di LocalStorage. Anda bisa memuat data dari API JSON eksternal."
+        }
+      ]
+    }
+  ]
+}

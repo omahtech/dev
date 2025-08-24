@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MVCS Dashboard • Single File (Admin/Public, CRUD, SVG Charts)</title>
+  <style>
+    :root {
+      --bg: #0f172a; /* slate-900 */
+      --panel: #111827; /* gray-900 */
+      --muted: #1f2937; /* gray-800 */
+      --fg: #e5e7eb; /* gray-200 */
+      --soft: #9ca3af; /* gray-400 */
+      --brand: #22d3ee; /* cyan-400 */
+      --accent: #a78bfa; /* violet-400 */
+      --ok: #34d399; /* emerald-400 */
+      --warn: #fbbf24; /* amber-400 */
+      --bad: #f87171; /* red-400 */
+      --card: #0b1023;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(180deg, #0b1023, var(--bg)); color: var(--fg);
+    }
+    a { color: var(--brand); text-decoration: none; }
+    .shell { max-width: 1200px; margin: 0 auto; padding: 16px; }
+
+    /* Topbar */
+    .topbar { display: grid; grid-template-columns: 1fr auto auto auto auto auto auto auto auto; gap: 10px; align-items: center; }
+    .title { font-weight: 700; letter-spacing: .3px; }
+    .badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--muted); border-radius:999px; background:#0d1228; font-size:12px; color: var(--soft);}
+    .btn { cursor: pointer; border: 1px solid var(--muted); background: #0c1226; color: var(--fg); border-radius: 10px; padding: 9px 12px; font-weight: 600; }
+    .btn:hover { border-color: var(--accent); }
+    .btn.ghost { background: transparent; }
+    .btn.brand { border-color: var(--brand); box-shadow: 0 0 0 1px inset var(--brand); }
+    select, input, textarea { background: #0a0f21; color: var(--fg); border: 1px solid var(--muted); border-radius: 8px; padding: 8px 10px; }
+    select:disabled, input:disabled, textarea:disabled { opacity: .6; }
+
+    /* Layout presets */
+    .groups { margin-top: 14px; display: grid; gap: 14px; }
+    .preset-dashboard .groups { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .preset-landing .groups { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+    .preset-profile .groups { grid-template-columns: 1fr; }
+
+    .group { border: 1px solid var(--muted); border-radius: 16px; background: #0b1229; box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset; }
+    .group-head { display:flex; align-items:center; justify-content: space-between; gap: 10px; padding: 12px; border-bottom: 1px dashed var(--muted); background: #0b1121; border-radius: 16px 16px 0 0; }
+    .group-title { display:flex; align-items:center; gap: 10px; font-weight: 700; }
+    .group-controls { display:flex; align-items:center; gap: 8px; }
+    .items { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; padding: 12px; }
+
+    /* Item */
+    .item { background: var(--card); border: 1px solid var(--muted); border-radius: 16px; overflow: hidden; display:flex; flex-direction: column; min-height: 120px; }
+    .item-head { display:flex; align-items:center; justify-content: space-between; gap: 8px; padding: 10px 12px; background:#10142b; border-bottom:1px dotted var(--muted); }
+    .item-title { font-weight: 600; font-size: 14px; }
+    .item-ctrls { display:flex; align-items:center; gap: 6px; }
+    .item-body { padding: 12px; }
+    .muted { color: var(--soft); }
+
+    /* Cards */
+    .card { padding: 8px; border-radius: 14px; background: linear-gradient(180deg, #0b1330, #0a1128); border: 1px solid var(--muted); }
+    .card h3 { margin: 0 0 6px 0; font-size: 16px; }
+    .card p { margin: 0; color: var(--soft); }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #1a2342; font-size: 13px; }
+    th { font-size: 12px; color: var(--soft); text-transform: uppercase; letter-spacing: .6px; }
+
+    /* SVG charts */
+    .svg-wrap { width: 100%; height: 240px; }
+    svg { width: 100%; height: 100%; display:block; }
+
+    /* Admin Only visibility */
+    .admin-only { display:none; }
+    .admin-on .admin-only { display: inline-flex; }
+
+    /* Right side JSON panel */
+    .panel { margin-top: 14px; display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .json-wrap { display:none; }
+    .json-wrap.open { display:block; }
+    .json-wrap textarea { width: 100%; min-height: 200px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+
+    /* Dialog */
+    dialog { border: 1px solid var(--muted); border-radius: 16px; background: #0c1226; color: var(--fg); padding: 0; }
+    .dlg-head { padding: 12px; border-bottom: 1px solid var(--muted); font-weight: 700; }
+    .dlg-body { padding: 12px; }
+    .dlg-foot { display:flex; justify-content: flex-end; gap: 8px; padding: 12px; border-top: 1px solid var(--muted); }
+
+    .hint { font-size: 12px; color: var(--soft); }
+    .sr { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+  </style>
+</head>
+<body>
+  <div class="shell" id="app">
+    <div class="topbar">
+      <div class="title">MVCS Dashboard <span class="badge" id="modeBadge">Mode: Publik</span></div>
+
+      <div class="badge">Preset
+        <select id="presetSelect" title="Pilih layout preset">
+          <option value="dashboard">Dashboard</option>
+          <option value="landing">Landing</option>
+          <option value="profile">Profile</option>
+        </select>
+      </div>
+
+      <button class="btn ghost admin-only" id="addGroupBtn">+ Grup</button>
+      <button class="btn ghost admin-only" id="toggleJsonBtn">JSON</button>
+
+      <!-- TOPBAR: Menu file JSON (alias + load/hapus) -->
+      <!-- <span class="badge" id="fileMenuTop" style="gap:8px">
+        File JSON
+        <select id="savedFilesSelectTop" title="Pilih file JSON tersimpan" style="min-width:180px">
+          <option value="">— pilih —</option>
+        </select>
+        <button class="btn ghost" id="loadJsonFileBtnTop" title="Muat file terpilih">Muat</button>
+        <button class="btn ghost" id="deleteJsonFileBtnTop" title="Hapus dari daftar">Hapus</button>
+      </span> -->
+
+      <!-- TOPBAR: Quick Load (langsung muat saat pilih) -->
+      <span class="badge" id="quickLoadMenuTop" style="gap:8px">
+        Muat Cepat
+        <select id="quickLoadSelectTop" title="Pilih file JSON untuk langsung dimuat" style="min-width:180px">
+          <option value="">— pilih &amp; muat —</option>
+        </select>
+      </span>
+
+      <div>
+        <label class="badge" style="gap:8px;cursor:pointer">
+          <input type="checkbox" id="adminToggle" /> Admin
+        </label>
+        <button class="btn" id="loginBtn">Login</button>
+        <button class="btn" id="logoutBtn" style="display:none">Logout</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="json-wrap" id="jsonWrap">
+        <div style="display:flex; gap:8px; align-items:center; justify-content:space-between; margin-bottom:6px">
+          <div>
+            <strong>Konfigurasi (JSON)</strong>
+            <span class="hint">Catatan: Halaman ini akan mencoba memuat <code>registry.json</code> atau parameter URL <code>?registry=...</code> saat pertama kali dibuka.</span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap">
+            <button class="btn ghost" id="prettifyBtn">Rapikan</button>
+            <button class="btn brand" id="saveJsonBtn">Simpan</button>
+            <button class="btn ghost" id="downloadBtn">Download HTML</button>
+
+            <!-- Ekspor JSON ke file (tidak menambah registry) -->
+            <button class="btn" id="saveJsonFileBtn" title="Ekspor konfigurasi sebagai berkas .json">Simpan JSON File</button>
+
+            <!-- Registry eksternal: tambah URL -->
+            <button class="btn ghost" id="addJsonUrlBtn" title="Daftarkan URL JSON eksternal">Tambah URL JSON</button>
+
+            <!-- NEW: Export registry sebagai registry.json -->
+            <button class="btn ghost" id="exportRegistryBtn" title="Simpan daftar 'Tambah URL JSON' ke file registry.json">Simpan Registry (.json)</button>
+
+            <!-- Panel: daftar alias + muat/hapus -->
+            <span class="badge" style="gap:8px">
+              File JSON Tersimpan
+              <select id="savedFilesSelect" title="Pilih entri (alias) JSON eksternal" style="min-width:180px">
+                <option value="">— pilih —</option>
+              </select>
+              <button class="btn ghost" id="loadJsonFileBtn" title="Muat entri terpilih">Muat</button>
+              <button class="btn ghost" id="deleteJsonFileBtn" title="Hapus dari daftar">Hapus</button>
+            </span>
+          </div>
+        </div>
+        <textarea id="jsonTextarea" spellcheck="false"></textarea>
+      </div>
+
+      <div id="page" class="preset-dashboard">
+        <div class="groups" id="groups"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Dialog -->
+  <dialog id="loginDialog">
+    <div class="dlg-head">Masuk sebagai Admin</div>
+    <div class="dlg-body">
+      <label>Username
+        <input type="text" id="loginUser" placeholder="admin" />
+      </label>
+      <br/><br/>
+      <label>Password
+        <input type="password" id="loginPass" placeholder="admin" />
+      </label>
+      <p class="hint">Demo saja (bukan keamanan sesungguhnya). Default: admin / admin</p>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn ghost" id="loginCancel">Batal</button>
+      <button class="btn brand" id="loginSubmit">Masuk</button>
+    </div>
+  </dialog>
+
+  <!-- Item Editor Dialog (JSON) -->
+  <dialog id="itemDialog">
+    <div class="dlg-head">Edit Item (JSON)</div>
+    <div class="dlg-body">
+      <textarea id="itemJson" style="width:680px; max-width: 85vw; min-height:320px"></textarea>
+      <div class="hint">Tip: Anda bisa set {"source":{"mode":"url","url":"https://dummyjson.com/products?limit=5","dataPath":"products"},"refreshSec":10}</div>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn ghost" id="itemCancel">Batal</button>
+      <button class="btn brand" id="itemSave">Simpan</button>
+    </div>
+  </dialog>
+
+  <!-- State bootstrap (filled on export) -->
+  <script id="__INITIAL_STATE__" type="application/json">{}</script>
+
+  <script>
+  // =================== MVCS ARCHITECTURE ===================
+  (function(){
+    'use strict';
+
+    // ---------- Model ----------
+    class Model {
+      /** @type {PageState} */
+      state = null;
+      constructor(initial) {
+        this.state = initial || Model.defaultState();
+      }
+      static defaultState() {
+        return {
+          meta: { name: 'MVCS Dashboard', version: 1 },
+          preset: 'dashboard',
+          groups: [
+            {
+              id: crypto.randomUUID(),
+              title: 'Grafik',
+              columns: 2,
+              items: [
+                Model.templates().chartBar('Penjualan / Kuartal'),
+                Model.templates().chartLine('Kunjungan / Hari'),
+              ]
+            },
+            {
+              id: crypto.randomUUID(),
+              title: 'Konten',
+              columns: 3,
+              items: [
+                Model.templates().table('Produk Teratas'),
+                Model.templates().card('Tentang Kami', 'Solusi dashboard single-file dengan arsitektur MVCS.'),
+                Model.templates().paragraph('Catatan', 'Semua data dan pengaturan disimpan di LocalStorage. Anda bisa memuat data dari API JSON eksternal.'),
+              ]
+            }
+          ]
+        };
+      }
+      static templates(){
+        const sampleList = [
+          { label: 'Q1', value: 120 },
+          { label: 'Q2', value: 180 },
+          { label: 'Q3', value: 90 },
+          { label: 'Q4', value: 210 },
+        ];
+        const daily = [
+          { label: 'Sen', value: 50 },{label:'Sel', value:70},{label:'Rab', value:65},{label:'Kam', value:90},{label:'Jum', value:120},{label:'Sab', value:80},{label:'Min', value:60}
+        ];
+        const products = [
+          { id:1, nama:'Keyboard', harga:350000 },
+          { id:2, nama:'Mouse', harga:150000 },
+          { id:3, nama:'Headset', harga:550000 },
+        ];
+        return {
+          base(type, title) {
+            return {
+              id: crypto.randomUUID(),
+              type, title,
+              refreshSec: 0,
+              source: { mode: 'static', data: [] },
+              mapping: { labelKey: 'label', valueKey: 'value' },
+              options: { height: 240, padding: 24, legend: true },
+            };
+          },
+          chartBar(title){
+            const it = this.base('chart:bar', title);
+            it.source.data = sampleList; return it;
+          },
+          chartLine(title){
+            const it = this.base('chart:line', title);
+            it.source.data = daily; return it;
+          },
+          chartPie(title){
+            const it = this.base('chart:pie', title);
+            it.source.data = [
+              { label:'A', value:30 }, { label:'B', value:45 }, { label:'C', value:25 }
+            ];
+            return it;
+          },
+          table(title){
+            const it = this.base('table', title);
+            it.source.data = products; return it;
+          },
+          card(title, text){
+            const it = this.base('card', title);
+            it.content = text || 'Isi card...'; return it;
+          },
+          paragraph(title, text){
+            const it = this.base('paragraph', title);
+            it.content = text || 'Paragraf...'; return it;
+          },
+          image(title, url){
+            const it = this.base('image', title || 'Gambar');
+            it.media = { url: url || 'https://picsum.photos/640/360', alt: 'Contoh gambar' };
+            return it;
+          },
+          video(title, url){
+            const it = this.base('video', title || 'Video');
+            it.media = { url: url || 'https://www.w3schools.com/html/mov_bbb.mp4' };
+            return it;
+          }
+        };
+      }
+    }
+
+    // ---------- Services ----------
+    const StorageService = {
+      KEY: 'mvcs_state_v1',
+      load() {
+        try {
+          const ls = localStorage.getItem(this.KEY);
+          if (ls) return JSON.parse(ls);
+        } catch(e) { console.warn('Load LS failed', e); }
+        // Bootstrap from inline script if provided (on exported file)
+        try {
+          const bootEl = document.getElementById('__INITIAL_STATE__');
+          if (bootEl && bootEl.textContent && bootEl.textContent.trim() !== '{}') {
+            return JSON.parse(bootEl.textContent);
+          }
+        } catch(e) { console.warn('Boot state parse failed', e); }
+        return null;
+      },
+      save(state) {
+        try { localStorage.setItem(this.KEY, JSON.stringify(state)); }
+        catch(e){ console.warn('Save LS failed', e); }
+      }
+    };
+
+    const AuthService = {
+      KEY: 'mvcs_admin_session',
+      isLogged() { return localStorage.getItem(this.KEY) === '1'; },
+      login(u, p){ const ok = (u==='admin' && p==='admin'); if (ok) localStorage.setItem(this.KEY, '1'); return ok; },
+      logout(){ localStorage.removeItem(this.KEY); }
+    };
+
+    const TimerService = {
+      _handles: new Map(),
+      clear(id){ const h = this._handles.get(id); if (h) { clearInterval(h); this._handles.delete(id); } },
+      set(id, sec, fn){ this.clear(id); if (sec>0) { const h = setInterval(fn, sec*1000); this._handles.set(id, h); } }
+    };
+
+    const ApiService = {
+      async fetchJSON(url) {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        return await res.json();
+      },
+      extractPath(obj, path){
+        if (!path) return obj;
+        return path.split('.').reduce((acc, k)=>acc?acc[k]:undefined, obj);
+      }
+    };
+
+    const DownloadService = {
+      downloadHTML(filename, html){
+        const blob = new Blob([html], { type: 'text/html' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+      },
+      snapshotDocumentWithState(state){
+        // Create a clone of document with embedded state in __INITIAL_STATE__
+        const doc = document.documentElement.cloneNode(true);
+        const s = doc.querySelector('#__INITIAL_STATE__');
+        if (s) s.textContent = JSON.stringify(state, null, 2);
+        // Remove admin-only visibility by default (public)
+        doc.querySelector('#adminToggle')?.removeAttribute('checked');
+        const serializer = new XMLSerializer();
+        return '<!DOCTYPE html>\\n' + serializer.serializeToString(doc);
+      },
+      /* download JSON (ekspor) */
+      downloadJSON(filename, dataObj){
+        try{
+          const blob = new Blob([JSON.stringify(dataObj, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+        }catch(e){ console.warn('Download JSON gagal', e); }
+      }
+    };
+
+    /* External JSON Registry (simpan alias + URL, bukan isi file) */
+    const ExternalRegistryService = {
+      INDEX_KEY: 'mvcs_json_registry_v1',
+      _read() {
+        try {
+          const raw = localStorage.getItem(this.INDEX_KEY);
+          const arr = raw ? JSON.parse(raw) : [];
+          return Array.isArray(arr) ? arr : [];
+        } catch (e) { return []; }
+      },
+      _write(list) {
+        try { localStorage.setItem(this.INDEX_KEY, JSON.stringify(list)); } catch(e){}
+      },
+      list() {
+        const items = this._read();
+        return items.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+      },
+      add(name, url) {
+        const list = this._read();
+        const now = Date.now();
+        const i = list.findIndex(x=>x.name===name);
+        if (i>=0) list[i] = { ...list[i], url, updatedAt: now };
+        else list.push({ name, url, updatedAt: now });
+        this._write(list);
+      },
+      get(name) {
+        return this._read().find(x=>x.name===name) || null;
+      },
+      remove(name) {
+        this._write(this._read().filter(x=>x.name!==name));
+      },
+      exists(name) {
+        return this._read().some(x=>x.name===name);
+      },
+      export(){
+        // Hanya data penting agar portable sebagai registry.json
+        return this._read().map(({name, url})=>({name, url}));
+      },
+      import(list, opts={overwrite:true}){
+        if (!Array.isArray(list)) return;
+        const current = this._read();
+        const map = new Map(current.map(x=>[x.name,x]));
+        list.forEach(entry=>{
+          if (!entry || !entry.name || !entry.url) return;
+          if (opts.overwrite || !map.has(entry.name)) {
+            map.set(entry.name, { name: entry.name, url: entry.url, updatedAt: Date.now() });
+          }
+        });
+        this._write(Array.from(map.values()));
+      }
+    };
+
+    /* Query util */
+    const QueryService = {
+      get(key){
+        const sp = new URLSearchParams(location.search);
+        return sp.get(key);
+      }
+    };
+
+    // ---------- View ----------
+    const View = {
+      root: document.getElementById('groups'),
+      pageEl: document.getElementById('page'),
+      modeBadge: document.getElementById('modeBadge'),
+
+      renderPage(state, adminOn){
+        // preset class
+        this.pageEl.classList.remove('preset-dashboard', 'preset-landing', 'preset-profile');
+        this.pageEl.classList.add('preset-'+state.preset);
+        // body class toggle for admin-only controls
+        document.getElementById('app').classList.toggle('admin-on', !!adminOn);
+        this.modeBadge.textContent = 'Mode: ' + (adminOn ? 'Admin' : 'Publik');
+        // render groups
+        this.root.innerHTML = '';
+        state.groups.forEach(g => this.root.appendChild(this.renderGroup(g, adminOn)));
+      },
+
+      renderGroup(group, adminOn){
+        const groupEl = el('div', { class: 'group', 'data-id': group.id });
+        const head = el('div', { class: 'group-head' });
+        const title = el('div', { class: 'group-title' }, [
+          el('span', {}, [txt(group.title)]),
+          el('span', { class: 'hint' }, [txt(`(${group.items.length} item)`)])
+        ]);
+        const ctrls = el('div', { class: 'group-controls' });
+        const sel = el('select', { class: 'admin-only', title: 'Tambah item' });
+        ['chart:bar','chart:line','chart:pie','table','card','paragraph','image','video'].forEach(t=>{
+          sel.appendChild(el('option', { value: t }, [txt('Tambah: '+t)]));
+        });
+        const addBtn = el('button', { class: 'btn ghost admin-only' }, [txt('+ Item')]);
+        const delBtn = el('button', { class: 'btn ghost admin-only' }, [txt('Hapus Grup')]);
+        addBtn.addEventListener('click', ()=>Controller.addItem(group.id, sel.value));
+        delBtn.addEventListener('click', ()=>Controller.removeGroup(group.id));
+        ctrls.append(sel, addBtn, delBtn);
+        head.append(title, ctrls);
+
+        const items = el('div', { class: 'items' });
+        group.items.forEach(item=> items.appendChild(this.renderItem(group.id, item, adminOn)));
+
+        groupEl.append(head, items);
+        return groupEl;
+      },
+
+      renderItem(groupId, item, adminOn){
+        const wrap = el('div', { class: 'item', 'data-id': item.id });
+        const head = el('div', { class: 'item-head' });
+        const title = el('div', { class: 'item-title' }, [txt(item.title || item.type)]);
+        const ctrls = el('div', { class: 'item-ctrls' });
+        const edit = el('button', { class: 'btn ghost admin-only' }, [txt('Edit')]);
+        const dup = el('button', { class: 'btn ghost admin-only' }, [txt('Duplikat')]);
+        const del = el('button', { class: 'btn ghost admin-only' }, [txt('Hapus')]);
+        edit.addEventListener('click', ()=>Controller.openItemEditor(groupId, item.id));
+        dup.addEventListener('click', ()=>Controller.duplicateItem(groupId, item.id));
+        del.addEventListener('click', ()=>Controller.removeItem(groupId, item.id));
+        ctrls.append(edit, dup, del);
+        head.append(title, ctrls);
+
+        const body = el('div', { class: 'item-body' });
+        body.append(this.renderComponent(item));
+
+        wrap.append(head, body);
+        return wrap;
+      },
+
+      renderComponent(item){
+        // Determine based on type
+        if (item.type === 'chart:bar') return this.renderBarChart(item);
+        if (item.type === 'chart:line') return this.renderLineChart(item);
+        if (item.type === 'chart:pie') return this.renderPieChart(item);
+        if (item.type === 'table') return this.renderTable(item);
+        if (item.type === 'card') return this.renderCard(item);
+        if (item.type === 'paragraph') return this.renderParagraph(item);
+        if (item.type === 'image') return this.renderImage(item);
+        if (item.type === 'video') return this.renderVideo(item);
+        return el('div', {}, [txt('Tipe tidak dikenal: '+item.type)]);
+      },
+
+      // ---- Components ----
+      renderBarChart(item){
+        const data = getDataList(item);
+        const { width, height, padding } = svgDims(item);
+        const max = Math.max(1, ...data.map(d=>Number(d.value)||0));
+        const bw = (width - padding*2) / data.length;
+        const g = [];
+        data.forEach((d, i)=>{
+          const h = (Number(d.value)||0) / max * (height - padding*2);
+          const x = padding + i*bw + 4;
+          const y = height - padding - h;
+          g.push(`<rect x="${x}" y="${y}" width="${bw-8}" height="${Math.max(1,h)}" rx="6" ry="6"/>`);
+          g.push(`<text x="${x + (bw-8)/2}" y="${height - padding + 14}" text-anchor="middle" font-size="10">${escapeHtml(d.label)}</text>`);
+        });
+        const svg = svgWrap(height, `<g fill="url(#grad)">${g.join('')}</g>`+svgDefs());
+        return divSvg(svg);
+      },
+      renderLineChart(item){
+        const data = getDataList(item);
+        const { width, height, padding } = svgDims(item);
+        const max = Math.max(1, ...data.map(d=>Number(d.value)||0));
+        const step = (width - padding*2) / Math.max(1, data.length-1);
+        const points = data.map((d,i)=>{
+          const x = padding + i*step;
+          const y = height - padding - (Number(d.value)||0)/max*(height - padding*2);
+          return x+","+y;
+        }).join(' ');
+        const dots = data.map((d,i)=>{
+          const [x,y] = points.split(' ')[i].split(',');
+          return `<circle cx="${x}" cy="${y}" r="3"/>`;
+        }).join('');
+        const labels = data.map((d,i)=>{
+          const x = padding + i*step;
+          return `<text x="${x}" y="${height - padding + 14}" text-anchor="middle" font-size="10">${escapeHtml(d.label)}</text>`;
+        }).join('');
+        const path = `<polyline fill="none" stroke="url(#grad)" stroke-width="2" points="${points}"/>`;
+        const svg = svgWrap(height, path + `<g fill="url(#grad)">${dots}</g>` + labels + svgDefs());
+        return divSvg(svg);
+      },
+      renderPieChart(item){
+        const data = getDataList(item);
+        const { height } = svgDims(item);
+        const R = Math.min(140, height/2 - 10);
+        const cx = 180, cy = height/2;
+        const sum = data.reduce((a,b)=>a+(Number(b.value)||0),0) || 1;
+        let angle = -Math.PI/2;
+        const segs = [];
+        data.forEach(d=>{
+          const frac = (Number(d.value)||0) / sum;
+          const a2 = angle + frac * Math.PI * 2;
+          const x1 = cx + R * Math.cos(angle), y1 = cy + R * Math.sin(angle);
+          const x2 = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
+          const large = (a2-angle) > Math.PI ? 1 : 0;
+          segs.push(`<path d="M ${cx} ${cy} L ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} Z" />`);
+          angle = a2;
+        });
+        const legend = data.map((d,i)=>`<tspan x="360" dy="${i?16:0}">${escapeHtml(d.label)} (${Number(d.value)})</tspan>`).join('');
+        const svg = svgWrap(height, `<g fill="url(#grad)">${segs.join('')}</g><text y="${cy-8}" font-size="12">${legend}</text>` + svgDefs());
+        return divSvg(svg);
+      },
+      renderTable(item){
+        const data = toArray(item.source?.data);
+        if (data.length===0) return el('div', { class:'muted' }, [txt('Tidak ada data')]);
+        const keys = Object.keys(data[0]);
+        const t = el('table');
+        const thead = el('thead');
+        const trh = el('tr');
+        keys.forEach(k=> trh.appendChild(el('th', {}, [txt(k)])));
+        thead.appendChild(trh);
+        const tb = el('tbody');
+        data.forEach(row=>{
+          const tr = el('tr');
+          keys.forEach(k=> tr.appendChild(el('td', {}, [txt(String(row[k]))])));
+          tb.appendChild(tr);
+        });
+        t.append(thead, tb);
+        return t;
+      },
+      renderCard(item){
+        const c = el('div', { class: 'card' });
+        c.append(el('h3', {}, [txt(item.title || 'Card')]), el('p', {}, [txt(item.content || '')]));
+        return c;
+      },
+      renderParagraph(item){
+        return el('p', { class: 'muted' }, [txt(item.content || '')]);
+      },
+      renderImage(item){
+        const img = el('img', { src: item.media?.url || '', alt: item.media?.alt || '', style: 'width:100%;height:auto;border-radius:12px;border:1px solid #1a2342' });
+        return img;
+      },
+      renderVideo(item){
+        const vid = el('video', { src: item.media?.url || '', controls: true, style:'width:100%;border-radius:12px;border:1px solid #1a2342' });
+        return vid;
+      }
+    };
+
+    // ---------- Controller ----------
+    const Controller = {
+      model: new Model(StorageService.load()),
+      adminOn: false,
+
+      init(){
+        // initial preset select
+        const presetSelect = document.getElementById('presetSelect');
+        presetSelect.value = this.model.state.preset;
+        presetSelect.addEventListener('change', ()=>{ this.model.state.preset = presetSelect.value; this.persistAndRender(); });
+
+        // admin toggle respects login
+        const adminToggle = document.getElementById('adminToggle');
+        adminToggle.addEventListener('change', ()=>{
+          if (!AuthService.isLogged()) { adminToggle.checked = false; return this.openLogin(); }
+          this.adminOn = adminToggle.checked; this.render();
+        });
+
+        // login buttons
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        loginBtn.addEventListener('click', ()=>this.openLogin());
+        logoutBtn.addEventListener('click', ()=>{ AuthService.logout(); this.adminOn=false; adminToggle.checked=false; this.updateAuthButtons(); this.render(); });
+
+        // json panel
+        document.getElementById('toggleJsonBtn').addEventListener('click', ()=>{
+          document.getElementById('jsonWrap').classList.toggle('open');
+          this.refreshTextarea();
+          this.refreshFileMenu(); // isi menu saat panel dibuka
+        });
+        document.getElementById('saveJsonBtn').addEventListener('click', ()=>this.applyTextarea());
+        document.getElementById('prettifyBtn').addEventListener('click', ()=>this.refreshTextarea(true));
+        document.getElementById('downloadBtn').addEventListener('click', ()=>{
+          const html = DownloadService.snapshotDocumentWithState(this.model.state);
+          DownloadService.downloadHTML('mvcs-dashboard.html', html);
+        });
+
+        // Ekspor JSON sebagai file (tidak menambah registry)
+        document.getElementById('saveJsonFileBtn').addEventListener('click', ()=>{
+          const defaultName = (this.model.state?.meta?.name || 'mvcs') + '-' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'');
+          const name = prompt('Nama file JSON?', defaultName);
+          if (!name) return;
+          DownloadService.downloadJSON(name + '.json', this.model.state);
+          alert('JSON diekspor sebagai berkas.');
+        });
+
+        // Tambah URL JSON ke registry
+        const addUrlBtn = document.getElementById('addJsonUrlBtn');
+        if (addUrlBtn) {
+          addUrlBtn.addEventListener('click', ()=>{
+            const name = prompt('Nama tampilan untuk file JSON (mis. "dataset-penjualan")?');
+            if (!name) return;
+            const url = prompt('Tempel URL file JSON eksternal (harus bisa diakses browser):');
+            if (!url) return;
+            if (ExternalRegistryService.exists(name) && !confirm('Nama sudah ada. Timpa URL?')) return;
+            ExternalRegistryService.add(name, url);
+            this.refreshFileMenu();
+            alert('Ditambahkan:\\n'+name+'\\n→ '+url);
+          });
+        }
+
+        // NEW: Simpan registry sebagai registry.json
+        const exportRegBtn = document.getElementById('exportRegistryBtn');
+        if (exportRegBtn) {
+          exportRegBtn.addEventListener('click', ()=>{
+            const data = ExternalRegistryService.export(); // [{name,url}]
+            DownloadService.downloadJSON('registry.json', data);
+            alert('Registry diekspor sebagai registry.json \\n(Simpan berdampingan dengan file HTML ini agar otomatis dimuat).');
+          });
+        }
+
+        // PANEL: muat dari registry eksternal
+        document.getElementById('loadJsonFileBtn').addEventListener('click', async ()=>{
+          const sel = document.getElementById('savedFilesSelect');
+          const name = sel.value; if (!name) return alert('Pilih entri terlebih dahulu.');
+          const rec = ExternalRegistryService.get(name);
+          if (!rec?.url) return alert('URL tidak ditemukan.');
+          try {
+            const obj = await ApiService.fetchJSON(rec.url);
+            this.model.state = obj;
+            this.persistAndRender();
+            alert('Dimuat dari: ' + rec.url);
+          } catch(e){ alert('Gagal memuat: '+e.message); }
+        });
+
+        document.getElementById('deleteJsonFileBtn').addEventListener('click', ()=>{
+          const sel = document.getElementById('savedFilesSelect');
+          const name = sel.value; if (!name) return alert('Pilih entri yang akan dihapus.');
+          if (!confirm('Hapus "'+name+'" dari daftar?')) return;
+          ExternalRegistryService.remove(name);
+          this.refreshFileMenu();
+        });
+
+        // // TOPBAR: muat & hapus
+        // const selTop = document.getElementById('savedFilesSelectTop');
+        // document.getElementById('loadJsonFileBtnTop').addEventListener('click', async ()=>{
+        //   const name = selTop.value; if (!name) return alert('Pilih entri terlebih dahulu.');
+        //   const rec = ExternalRegistryService.get(name);
+        //   if (!rec?.url) return alert('URL tidak ditemukan.');
+        //   try {
+        //     const obj = await ApiService.fetchJSON(rec.url);
+        //     this.model.state = obj;
+        //     this.persistAndRender();
+        //     alert('Dimuat dari: ' + rec.url);
+        //   } catch(e){ alert('Gagal memuat: '+e.message); }
+        // });
+        // document.getElementById('deleteJsonFileBtnTop').addEventListener('click', ()=>{
+        //   const name = selTop.value; if (!name) return alert('Pilih entri yang akan dihapus.');
+        //   if (!confirm('Hapus "'+name+'" dari daftar?')) return;
+        //   ExternalRegistryService.remove(name);
+        //   this.refreshFileMenu();
+        // });
+
+        // TOPBAR QUICK LOAD: langsung muat saat pilih (tanpa konfirmasi)
+        const quickSelTop = document.getElementById('quickLoadSelectTop');
+        if (quickSelTop) {
+          quickSelTop.addEventListener('change', async ()=>{
+            const name = quickSelTop.value;
+            if (!name) return;
+            const rec = ExternalRegistryService.get(name);
+            if (!rec?.url) { alert('URL tidak ditemukan.'); quickSelTop.value=''; return; }
+            try {
+              const obj = await ApiService.fetchJSON(rec.url);
+              this.model.state = obj;
+              this.persistAndRender();
+              // sinkronkan dropdown lain
+              const panelSel = document.getElementById('savedFilesSelect');
+              // if (selTop) selTop.value = name;
+              if (panelSel) panelSel.value = name;
+            } catch(e){ alert('Gagal memuat: '+e.message); }
+            quickSelTop.value = ''; // kembali ke placeholder
+          });
+        }
+
+        // Sinkronisasi pilihan panel <-> topbar biasa
+        const selPanel = document.getElementById('savedFilesSelect');
+        // selTop.addEventListener('change', ()=>{ if (selPanel) selPanel.value = selTop.value; });
+        // if (selPanel) selPanel.addEventListener('change', ()=>{ selTop.value = selPanel.value; });
+
+        // group add
+        document.getElementById('addGroupBtn').addEventListener('click', ()=>{
+          const g = { id: crypto.randomUUID(), title: 'Grup Baru', columns: 2, items: [] };
+          this.model.state.groups.push(g); this.persistAndRender();
+        });
+
+        // set admin state from session
+        this.adminOn = AuthService.isLogged();
+        document.getElementById('adminToggle').checked = this.adminOn;
+        this.updateAuthButtons();
+
+        // Render awal + isi menu dari LS (jika ada)
+        this.render();
+        this.refreshFileMenu();
+
+        // NEW: Autoload registry dari ?registry=... atau ./registry.json
+        this.bootstrapRegistryAutoload();
+      },
+
+      // NEW: Autoload registry JSON on page run
+      async bootstrapRegistryAutoload(){
+        // 1) Cek query param ?registry=URL
+        const paramUrl = QueryService.get('registry');
+        const candidates = [];
+        if (paramUrl) candidates.push(paramUrl);
+        // 2) Default fallback: file registry.json di folder yang sama
+        candidates.push(new URL('registry.json', location.href).href);
+
+        for (const url of candidates){
+          try {
+            const data = await ApiService.fetchJSON(url);
+            const list = Array.isArray(data) ? data
+                       : Array.isArray(data?.registry) ? data.registry
+                       : Array.isArray(data?.items) ? data.items
+                       : null;
+            if (!list) continue;
+            ExternalRegistryService.import(list, { overwrite: true });
+            this.refreshFileMenu();
+            console.info('[Registry] Autoload sukses dari', url);
+            break; // stop pada sukses pertama
+          } catch(e){
+            // silent fail, lanjut kandidat berikutnya
+            console.info('[Registry] Autoload gagal dari', url, e?.message);
+          }
+        }
+      },
+
+      updateAuthButtons(){
+        document.getElementById('loginBtn').style.display = AuthService.isLogged() ? 'none' : 'inline-block';
+        document.getElementById('logoutBtn').style.display = AuthService.isLogged() ? 'inline-block' : 'none';
+      },
+      render(){
+        // Setup timers for auto-refresh per item
+        TimerService._handles.forEach((_, id)=>TimerService.clear(id));
+        this.model.state.groups.forEach(g=>{
+          g.items.forEach(item=>{
+            if (item.refreshSec && item.source?.mode==='url' && item.source.url) {
+              TimerService.set(item.id, item.refreshSec, ()=>this.refreshItemFromUrl(item));
+            }
+          });
+        });
+        View.renderPage(this.model.state, this.adminOn);
+        this.refreshTextarea();
+      },
+      persistAndRender(){ StorageService.save(this.model.state); this.render(); },
+      refreshTextarea(pretty){
+        const ta = document.getElementById('jsonTextarea');
+        ta.value = JSON.stringify(this.model.state, null, pretty?2:0);
+      },
+      applyTextarea(){
+        const ta = document.getElementById('jsonTextarea');
+        try { const next = JSON.parse(ta.value); this.model.state = next; this.persistAndRender(); }
+        catch(e){ alert('JSON tidak valid: '+e.message); }
+      },
+
+      // CRUD Groups & Items
+      removeGroup(groupId){
+        if (!confirm('Hapus grup ini?')) return;
+        this.model.state.groups = this.model.state.groups.filter(g=>g.id!==groupId);
+        this.persistAndRender();
+      },
+      addItem(groupId, type){
+        const g = this.model.state.groups.find(x=>x.id===groupId); if (!g) return;
+        const T = Model.templates();
+        let item;
+        switch(type){
+          case 'chart:bar': item = T.chartBar('Bar Chart'); break;
+          case 'chart:line': item = T.chartLine('Line Chart'); break;
+          case 'chart:pie': item = T.chartPie('Pie Chart'); break;
+          case 'table': item = T.table('Tabel'); break;
+          case 'card': item = T.card('Card Baru', 'Isi card...'); break;
+          case 'paragraph': item = T.paragraph('Paragraf', 'Tulis sesuatu di sini...'); break;
+          case 'image': item = T.image('Gambar'); break;
+          case 'video': item = T.video('Video'); break;
+          default: item = T.card('Item', 'Tipe: '+type);
+        }
+        g.items.push(item); this.persistAndRender();
+      },
+      duplicateItem(groupId, itemId){
+        const g = this.model.state.groups.find(x=>x.id===groupId); if (!g) return;
+        const idx = g.items.findIndex(x=>x.id===itemId); if (idx<0) return;
+        const copy = JSON.parse(JSON.stringify(g.items[idx])); copy.id = crypto.randomUUID(); copy.title = (copy.title||copy.type) + ' (Copy)';
+        g.items.splice(idx+1, 0, copy); this.persistAndRender();
+      },
+      removeItem(groupId, itemId){
+        if (!confirm('Hapus item ini?')) return;
+        const g = this.model.state.groups.find(x=>x.id===groupId); if (!g) return;
+        g.items = g.items.filter(x=>x.id!==itemId); this.persistAndRender();
+      },
+
+      // Item Editor
+      openItemEditor(groupId, itemId){
+        const g = this.model.state.groups.find(x=>x.id===groupId); const it = g?.items.find(x=>x.id===itemId);
+        if (!it) return;
+        const dlg = document.getElementById('itemDialog');
+        const ta = document.getElementById('itemJson');
+        ta.value = JSON.stringify(it, null, 2);
+        dlg.showModal();
+        const save = ()=>{
+          try {
+            const next = JSON.parse(ta.value);
+            const j = g.items.findIndex(x=>x.id===itemId);
+            g.items[j] = next; // keep new id if provided
+            StorageService.save(this.model.state);
+            dlg.close();
+            this.render();
+          } catch(e){ alert('JSON tidak valid: '+e.message); }
+        };
+        const cancel = ()=> dlg.close();
+        const saveBtn = document.getElementById('itemSave');
+        const cancelBtn = document.getElementById('itemCancel');
+        saveBtn.onclick = save; cancelBtn.onclick = cancel;
+      },
+
+      // Data refresh
+      async refreshItemFromUrl(item){
+        try{
+          const json = await ApiService.fetchJSON(item.source.url);
+          const payload = ApiService.extractPath(json, item.source.dataPath);
+          if (Array.isArray(payload)) item.source.data = payload; else if (payload) item.source.data = [payload];
+          StorageService.save(this.model.state);
+          this.render();
+        }catch(e){ console.warn('Refresh gagal', e); }
+      },
+
+      // Login
+      openLogin(){
+        const dlg = document.getElementById('loginDialog');
+        const doClose = ()=>dlg.close();
+        document.getElementById('loginCancel').onclick = doClose;
+        document.getElementById('loginSubmit').onclick = ()=>{
+          const u = document.getElementById('loginUser').value || 'admin';
+          const p = document.getElementById('loginPass').value || 'admin';
+          if (AuthService.login(u,p)) { this.adminOn=true; document.getElementById('adminToggle').checked=true; this.updateAuthButtons(); this.render(); doClose(); }
+          else alert('Gagal login');
+        };
+        dlg.showModal();
+      },
+
+      /* refresh menu dari ExternalRegistryService */
+      refreshFileMenu(){
+        const selects = [
+          document.getElementById('savedFilesSelect'),     // panel
+          // document.getElementById('savedFilesSelectTop'),  // topbar (dengan tombol muat)
+          document.getElementById('quickLoadSelectTop')    // topbar quick load (tanpa tombol)
+        ].filter(Boolean);
+
+        const items = ExternalRegistryService.list(); // [{name,url}]
+        selects.forEach(sel=>{
+          const was = sel.value;
+          sel.innerHTML = '<option value="">— pilih —</option>';
+          items.forEach(({name, url})=>{
+            const opt = document.createElement('option');
+            opt.value = name;                // value = alias
+            opt.textContent = `${name}`;     // tampilkan alias
+            opt.title = url;                 // hint: URL sumber
+            sel.appendChild(opt);
+          });
+          if (sel.id === 'quickLoadSelectTop') sel.value = '';
+          else if ([...sel.options].some(o=>o.value===was)) sel.value = was;
+        });
+      }
+    };
+
+    // ---------- Utils ----------
+    function el(tag, attrs={}, children=[]) {
+      const n = document.createElement(tag);
+      for (const k in attrs) { if (attrs[k]!==undefined && attrs[k]!==null) n.setAttribute(k, String(attrs[k])); }
+      children.forEach(c=> n.appendChild(typeof c==='string'? document.createTextNode(c) : c));
+      return n;
+    }
+    function txt(s){ return document.createTextNode(String(s)); }
+    function toArray(x){ return Array.isArray(x) ? x : (x? [x] : []); }
+    function escapeHtml(s){ return String(s).replace(/[&<>]/g, ch=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;"}[ch])); }
+    function getDataList(item){
+      const arr = toArray(item.source?.data);
+      const map = (obj)=>({ label: obj?.[item.mapping?.labelKey||'label'], value: Number(obj?.[item.mapping?.valueKey||'value'])||0 });
+      return arr.map(map);
+    }
+    function svgDims(item){
+      const w = 560, h = item?.options?.height || 240, p = item?.options?.padding || 24;
+      return { width: w, height: h, padding: p };
+    }
+    function svgWrap(h, inner){
+      return `<div class="svg-wrap"><svg viewBox="0 0 560 ${h}" role="img" aria-label="chart">${inner}</svg></div>`;
+    }
+    function svgDefs(){
+      return `\\n<defs>\\n  <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">\\n    <stop offset="0%" stop-color="#22d3ee"/>\\n    <stop offset="100%" stop-color="#a78bfa"/>\\n  </linearGradient>\\n</defs>`;
+    }
+    function divSvg(svg){ const d = document.createElement('div'); d.innerHTML = svg; return d.firstChild; }
+
+    // ---------- Boot ----------
+    const ControllerRef = Controller; // expose for inline buttons if needed
+    window.Controller = ControllerRef;
+    Controller.init();
+  })();
+  </script>
+
+  <!-- (Opsional) Contoh format registry.json:
+  [
+    { "name": "dataset-penjualan", "url": "https://example.com/dataset-penjualan.json" },
+    { "name": "dashboard-marketing", "url": "https://example.com/marketing.json" }
+  ]
+  Atau:
+  { "registry": [ { "name": "...", "url": "..." } ] }
+  -->
+</body>
+</html>
